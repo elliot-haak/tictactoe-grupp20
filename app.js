@@ -7,11 +7,12 @@ const jsDOM = require('jsdom');
 const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const globalObject = require('./servermodules/game-modul');
-const http = require('http');
 
-http.createServer((request, response) => {
-    //jadu
-}).listen(3000);
+let app = express();
+
+let server = app.listen(3000, ()=>{
+    console.log('server up and running');
+});
 
 
 
