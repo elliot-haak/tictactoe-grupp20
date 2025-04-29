@@ -10,8 +10,9 @@ const globalObject = require('./servermodules/game-modul');
 
 let app = express();
 
-let server = app.listen(3000, ()=>{
+let server = app.listen(3000, () => {
     console.log('server up and running');
+    //testar git
 });
 
 
