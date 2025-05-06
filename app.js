@@ -12,7 +12,6 @@ let app = express();
 
 let server = app.listen(3000, () => {
     console.log('server up and running');
-    //testar git commands
 });
 
 app.use('/public', express.static(__dirname + '/static'));
@@ -20,7 +19,18 @@ app.use(express.urlencoded({extended : true}));
 app.use(cookieParser());
 
 app.get('/', function(request, response){
-    response.sendFile(__dirname + '/static/html/loggain.html', function(err){
+    let nickname = request.cookies.nickName;
+    let color = request.cookies.color;
+    let filePath;
+
+    if(nickname !== undefined && color !==undefined){
+      filePath = __dirname + '/static/html/index.html';
+      console.log('skickar index fil');
+
+    }else{
+      filePath = __dirname + '/static/html/loggain.html';
+    }
+    response.sendFile(filePath, function(err){
         if(err){
             console.log('fel vid uppladdning av fil');
         }else{
@@ -29,10 +39,24 @@ app.get('/', function(request, response){
 
 
     });
+    
 });
 
 app.get('/reset', function(request, response){
-    
+   let nickname = request.cookies.nickName;
+   let color = request.cookies.color;
+
+  if(nickname !== undefined && color !== undefined){
+    response.clearCookie('nickName');
+    response.clearCookie('color');
+
+    globalObject.playerOneNick = null;
+    globalObject.playerTwoNick = null;
+    globalObject.playerOneColor = null; 
+    globalObject.playerTwoColor = null; 
+  }
+
+  response.redirect('/');
 });
 
 app.post('/', function(request, response){
@@ -69,13 +93,49 @@ app.post('/', function(request, response){
                 errorMsg : 'Ogiltig färg'
             };
         }
+      if(globalObject.playerOneNick !== null && globalObject.playerOneColor !== null){
+        globalObject.playerTwoNick = nick1; 
+        globalObject.playerTwoColor = color1; 
 
+        if(globalObject.playerTwoNick === globalObject.playerOneNick){
+          throw{
+            errorMsg : 'Nickname redan valt'
+          }
+        }
+        if(globalObject.playerTwoColor === globalObject.playerOneColor){
+          throw{
+            errorMsg : 'Färg redan valt'
+          }
+        }
+      }else{
+        globalObject.playerOneNick = nick1;
+        globalObject.playerOneColor = color1; 
+      }      
+
+            
         
 
-        
+      response.cookie('nickName', nick1, {maxAge : 2 * 60 * 60 * 1000});
+      response.cookie('color', color1, {maxAge : 2* 60 * 60 * 1000});
+
+      response.redirect("/"); 
 
     }catch(eo){
-        
+     fs.readFile(__dirname + '/static/html/loggain.html',  function(err, data){
+       if(err){
+         console.log('kunde inte läsa in fil');
+       }else{
+         let serverDOM = new jsDOM.JSDOM(data);
+          
+         serverDOM.window.document.querySelector('#errorMsg').textContent = eo.errorMsg;
+         serverDOM.window.document.querySelector('#nick_1').value = nick1;
+         serverDOM.window.document.querySelector('#color_1').value = color1; 
+
+         data = serverDOM.serialize(); 
+
+         response.send(data);
+       }
+     }); 
     }
 
 
