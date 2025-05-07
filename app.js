@@ -1,7 +1,9 @@
 'use strict';
 
 //Filen app.js är den enda ni skall och tillåts skriva kod i.
+//all kod är tagen från workshop och föreläsning 4 med Peter github
 
+//här importerar vi alla paket som vi har installerat via npm 
 const express = require('express');
 const jsDOM = require('jsdom');
 const cookieParser = require('cookie-parser');
@@ -9,15 +11,16 @@ const fs = require('fs');
 const globalObject = require('./servermodules/game-modul.js');
 
 let app = express();
-
+//skapar server på port 3000
 let server = app.listen(3000, () => {
     console.log('server up and running');
 });
-
+//alla middleware för public folder som inte finns och byter ut den mot static, cookies och så serverkan läsa datan med urlencoded
 app.use('/public', express.static(__dirname + '/static'));
 app.use(express.urlencoded({extended : true}));
 app.use(cookieParser());
 
+//get metod på rooten där den vi kontrollerar om det finns cookies på servern och om det finns så skickar vi index filen annars så skickar vi loggain filen
 app.get('/', function(request, response){
     let nickname = request.cookies.nickName;
     let color = request.cookies.color;
@@ -45,6 +48,7 @@ app.get('/', function(request, response){
         
 });
 
+//på sökvägen /reset hämtar vi cookies och om dem finns så tar vi bort dem och rensar värdena på globalobject attributen och skickar tillbaka användaren till rooten oavsett 
 app.get('/reset', function(request, response){
    let nickname = request.cookies.nickName;
    let color = request.cookies.color;
@@ -62,6 +66,11 @@ app.get('/reset', function(request, response){
   response.redirect('/');
 });
 
+//på metod post på rooten (när man klickar på submit knappen) så hämtar vi värdena i input fälten
+//Validerar värdena och sparar värdet till spelare 1 eller 2 beroende på om playerOneNick är satt eller inte
+//Om allt är ok så skapar vi kakor och skickar användaren till rooten
+//vid undantag så läser vi in loggain filen skapar den virtuella DOMen och hämtar element
+//Sätter text på #errorMsg med det fel som fångas i try
 app.post('/', function(request, response){
     
     
@@ -69,7 +78,6 @@ app.post('/', function(request, response){
     let color1 = request.body.color_1;
     
     try{
-        //console.log('nickname saknas');
         if(nick1 === undefined){
             throw{
                 errorMsg : 'Nickname saknas!'
