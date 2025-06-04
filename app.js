@@ -15,6 +15,9 @@ let app = express();
 let server = app.listen(3000, () => {
     console.log('server up and running');
 });
+
+const io = require('socket.io')(server);
+
 //alla middleware för public folder som inte finns och byter ut den mot static, cookies och så serverkan läsa datan med urlencoded
 app.use('/public', express.static(__dirname + '/static'));
 app.use(express.urlencoded({extended : true}));
@@ -25,7 +28,7 @@ app.get('/', function(request, response){
     let nickname = request.cookies.nickName;
     let color = request.cookies.color;
 
-    if(nickname !== undefined && color !==undefined){
+    if(nickname !== undefined && color !== undefined){
       response.sendFile(__dirname + '/static/html/index.html', function(err){
         if(err){
             console.log('fel vid uppladdning av fil');
@@ -73,11 +76,11 @@ app.get('/reset', function(request, response){
 //Sätter text på #errorMsg med det fel som fångas i try
 app.post('/', function(request, response){
     
-    
-    let nick1 = request.body.nick_1;
-    let color1 = request.body.color_1;
-    
     try{
+
+      let color1 = request.body.color_1;
+      let nick1 = request.body.nick_1;
+
         if(nick1 === undefined){
             throw{
                 errorMsg : 'Nickname saknas!'
@@ -104,27 +107,26 @@ app.post('/', function(request, response){
                 errorMsg : 'Ogiltig färg'
             };
         }
-      if(globalObject.playerOneNick !== null && globalObject.playerOneColor !== null){
-        globalObject.playerTwoNick = nick1; 
-        globalObject.playerTwoColor = color1; 
 
-        if(globalObject.playerTwoNick === globalObject.playerOneNick){
+        if(nick1 === globalObject.playerOneNick){
           throw{
             errorMsg : 'Nickname redan valt'
           }
         }
-        if(globalObject.playerTwoColor === globalObject.playerOneColor){
+        if(color1 === globalObject.playerOneColor){
           throw{
             errorMsg : 'Färg redan valt'
           }
         }
-      }else{
+        
+      /*if(globalObject.playerOneNick !== null && globalObject.playerTwoNick === null){
+        globalObject.playerTwoNick = nick1; 
+        globalObject.playerTwoColor = color1; 
+
+      }else if(globalObject.playerOneNick === null && globalObject.playerTwoNick === null){
         globalObject.playerOneNick = nick1;
         globalObject.playerOneColor = color1; 
-      }      
-
-            
-        
+      }*/
 
       response.cookie('nickName', nick1, {maxAge : 2 * 60 * 60 * 1000});
       response.cookie('color', color1, {maxAge : 2* 60 * 60 * 1000});
@@ -139,8 +141,8 @@ app.post('/', function(request, response){
          let serverDOM = new jsDOM.JSDOM(data);
           
          serverDOM.window.document.querySelector('#errorMsg').textContent = eo.errorMsg;
-         serverDOM.window.document.querySelector('#nick_1').value = nick1;
-         serverDOM.window.document.querySelector('#color_1').value = color1; 
+         serverDOM.window.document.querySelector('#nick_1').setAttribute('value', request.body.nick_1);
+         serverDOM.window.document.querySelector('#color_1').setAttribute('value', request.body.color_1);
 
          data = serverDOM.serialize(); 
 
@@ -149,18 +151,111 @@ app.post('/', function(request, response){
      }); 
     }
 
-
-    
 });
 
+io.on('connection', function(socket){
+
+  let cookieString = socket.handshake.headers.cookie; 
+  let list = globalObject.parseCookies(cookieString);
+
+  if(list.nickName !== undefined && list.color !== undefined){
+
+    if(globalObject.playerOneSocketId === null){
+
+      globalObject.playerOneSocketId = socket.id;
+      globalObject.playerOneNick = list.nickName;
+      globalObject.playerOneColor = list.color;
+
+    }else if(globalObject.playerTwoSocketId === null && globalObject.playerOneSocketId !== null){
+      globalObject.playerTwoSocketId = socket.id;
+      globalObject.playerTwoNick = list.nickName;
+      globalObject.playerTwoColor = list.color;
+      globalObject.resetGameArea();
+
+    }else{
+      console.log('redan 2 spelare anslutna');
+      socket.disconnect(true);
+
+    }
+
+  }else{
+    console.log('kakor saknas!');
+    socket.disconnect(true);
+    
+  }
+
+  if(globalObject.playerOneNick !== null && globalObject.playerTwoNick !== null){
+
+    timeout();
+
+    let dataPlayerOne = {
+      opponentNick : globalObject.playerTwoNick,
+      opponentColor : globalObject.playerTwoColor,
+      myColor : globalObject.playerOneColor
+    }
+    io.to(globalObject.playerOneSocketId).emit('newGame', dataPlayerOne);
+    globalObject.currentPlayer = 1;
+    io.to(globalObject.playerOneSocketId).emit('yourMove');
+
+    let dataPlayerTwo = {
+      opponentNick : globalObject.playerOneNick,
+      opponentColor : globalObject.playerOneColor,
+      myColor : globalObject.playerTwoColor
+    }
+    io.to(globalObject.playerTwoSocketId).emit('newGame', dataPlayerTwo);
+  }
+  socket.on('newMove', function(data){
+    clearTimeout(globalObject.timerId);
+    globalObject.timerId = 0;
+
+    if(socket.id === globalObject.playerOneSocketId){
+      io.to(globalObject.playerTwoSocketId).emit('yourMove', data);
+      globalObject.gameArea[data.cellId] = globalObject.currentPlayer;
+      globalObject.currentPlayer = 2;
+
+    }else{
+
+      io.to(globalObject.playerOneSocketId).emit('yourMove', data);
+      globalObject.gameArea[data.cellId] = globalObject.currentPlayer;
+      globalObject.currentPlayer = 1;
+
+    }
+
+    globalObject.timerId = setTimeout(timeout, 5000);
+
+    let winner = globalObject.checkForWinner();
+    if(winner === 1){
+      io.emit('gameover', 'vinnaren är '+ globalObject.playerOneNick);
+      globalObject.timerId = 0;
+    }
+    if(winner === 2){
+      io.emit('gameover', 'vinnaren är '+ globalObject.playerTwoNick);
+      globalObject.timerId = 0;
+    }
+    if(winner === 3){
+      io.emit('gameover', 'OAVGJORT');
+      globalObject.timerId = 0;
+    }
 
 
+  });
+  
+});
 
+function timeout(){
 
+  clearTimeout(globalObject.timerId);
+  globalObject.timerId = 0;
 
+  if(globalObject.currentPlayer === 1){
+    io.to(globalObject.playerOneSocketId).emit('timeout');
+    io.to(globalObject.playerTwoSocketId).emit('yourMove');
+    globalObject.currentPlayer = 2;
+  }else{
+    io.to(globalObject.playerTwoSocketId).emit('timeout');
+    io.to(globalObject.playerOneSocketId).emit('yourMove');
+    globalObject.currentPlayer = 1;
+  }
 
-
-
-
-
-
+  globalObject.timerId = setTimeout(timeout,5000);
+}

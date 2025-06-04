@@ -1,7 +1,26 @@
 {
+  "name": "tictactoe",
+  "version": "1.0.0",
+  "description": "tictactoe spel via webbserver och sockets",
+  "homepage": "https://github.com/elliot-haak/tictactoe-grupp20#readme",
+  "bugs": {
+    "url": "https://github.com/elliot-haak/tictactoe-grupp20/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elliot-haak/tictactoe-grupp20.git"
+  },
+  "license": "ISC",
+  "author": "Elliot Haak, David Käck, Oscar Rundqvist",
+  "type": "commonjs",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
-    "jsdom": "^26.1.0"
+    "jsdom": "^26.1.0",
+    "socket.io": "^4.8.1"
   }
 }
