@@ -1,7 +1,7 @@
 'use strict';
 
 //Filen app.js är den enda ni skall och tillåts skriva kod i.
-//all kod är tagen från workshop och föreläsning 4 med Peter github
+//majoriteten av koden är tagen från föreläsningar och workshops. 
 
 //här importerar vi alla paket som vi har installerat via npm 
 const express = require('express');
@@ -118,21 +118,15 @@ app.post('/', function(request, response){
             errorMsg : 'Färg redan valt'
           }
         }
-        
-      /*if(globalObject.playerOneNick !== null && globalObject.playerTwoNick === null){
-        globalObject.playerTwoNick = nick1; 
-        globalObject.playerTwoColor = color1; 
-
-      }else if(globalObject.playerOneNick === null && globalObject.playerTwoNick === null){
-        globalObject.playerOneNick = nick1;
-        globalObject.playerOneColor = color1; 
-      }*/
-
+       
       response.cookie('nickName', nick1, {maxAge : 2 * 60 * 60 * 1000});
       response.cookie('color', color1, {maxAge : 2* 60 * 60 * 1000});
 
       response.redirect("/"); 
 
+    //när något fel uppstår i try:en så fångas det upp här i "eo"
+    //läser in loggain filen till servern och bygger upp en virtuell DOM
+    //hämtar element och ändrar dess innehåll, serializerar det och skickar till servern det med response. 
     }catch(eo){
      fs.readFile(__dirname + '/static/html/loggain.html',  function(err, data){
        if(err){
@@ -153,11 +147,16 @@ app.post('/', function(request, response){
 
 });
 
+//socket anslutningen med händelsen "connection"
+//hämtar cookie sträng med handshak metod som är hämtad från föreläsning/workshop med Pierre
+//använder parseCookie metoden som finns i game-modul.js
 io.on('connection', function(socket){
 
   let cookieString = socket.handshake.headers.cookie; 
   let list = globalObject.parseCookies(cookieString);
 
+  //kontroll om kakorna finns så görs det ytterligare en kontroll om vilken spelare som är ansluten via socketID
+  //sätter också spelare 1 och 2's attribut, name och color.
   if(list.nickName !== undefined && list.color !== undefined){
 
     if(globalObject.playerOneSocketId === null){
@@ -184,6 +183,8 @@ io.on('connection', function(socket){
     
   }
 
+  //när båda spelarnas nickname är satta så börjar spelet och timern/timeouten anropas. 
+  //skapar 2 objekt för spelare 1 och 2. skickar värdena med händelse newGame 
   if(globalObject.playerOneNick !== null && globalObject.playerTwoNick !== null){
 
     timeout();
@@ -204,6 +205,10 @@ io.on('connection', function(socket){
     }
     io.to(globalObject.playerTwoSocketId).emit('newGame', dataPlayerTwo);
   }
+  //händelse newMove som uppdaterar spelarens drag. Uppdaterar spelplanens array med currentPlayer. 1 eller 2
+  //sedan kontrolleras vinnaren med metoden checkForWinner som hämtas från game-modul.js
+  //funktionen returnerar 1 om spelare 1 vinner och 2 om spelare 2 vinner, då vi uppdaterar arreyen med currentplayer
+  //returnerar den 3 så är det oavgjort och 0 så fortsätter spelet
   socket.on('newMove', function(data){
     clearTimeout(globalObject.timerId);
     globalObject.timerId = 0;
@@ -242,6 +247,7 @@ io.on('connection', function(socket){
   
 });
 
+//funktion som startar timer på 5 sekunder och byter spelare om det har gått 5 sekunder. 
 function timeout(){
 
   clearTimeout(globalObject.timerId);
